@@ -1,24 +1,206 @@
-<DOCTYPE html>
-<!-- Web page written by David Eck, http://math.hws.edu/eck/index.html The "Timed Sort" section requires the file timed-sort-worker.js. You can do anythir code, but if you use a substantial portion of it, you should include attribution. →
-<html> Faire défiler
-‹!-- This JavaScript program is a fairly direct port of an old Java applet, which was itself a port of an older Macintosh Pascal program. It might carry
+<!DOCTYPE html>
+<html lang="en">
 <head>
+<meta charset="UTF-8">
+<title>Exploring Sorting Algorithms</title>
+<style>
+  body {
+    font-family: sans-serif;
+    text-align: center;
+    background: #f9fafb;
+  }
+  canvas {
+    border: 1px solid #555;
+    margin: 20px auto;
+    display: block;
+    background: white;
+  }
+  #controls {
+    margin-top: 10px;
+  }
+  button {
+    margin: 4px;
+    padding: 6px 10px;
+    font-size: 14px;
+    border-radius: 6px;
+    border: none;
+    background: #3b82f6;
+    color: white;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  button:hover {
+    background: #2563eb;
+  }
+</style>
+</head>
 <body onload="init()">
-<div id="content">
-noscript»<p style="color:#990000">Sorry, this program requires JavaScript to run.</p></noscript>
-<div id="visual">
-<h2>Visual Sort</h2>
-<table border="0">
-<tr valign="top">
-<canvas id="sortcanvas" width="600" height="400" style="background-color:rgb(230,230, 255)">
-<td>
-</tr>
-<tr>
-</tbody>
-</table>
+
+<h2>Exploring Sorting Algorithms</h2>
+<canvas id="mainCanvas" width="700" height="400"></canvas>
+
+<div id="controls">
+  <button onclick="randomPermutation()">Randomize</button>
+  <button onclick="sort('Selection')">Selection Sort</button>
+  <button onclick="sort('Insertion')">Insertion Sort</button>
+  <button onclick="sort('Merge')">Merge Sort</button>
+  <button onclick="sort('Quick')">Quick Sort</button>
 </div>
-<div id="timed">
-<div id="logdiv">
-</div>
+
+<script>
+// === Variables ===
+let canvas, graphics;
+let array = [];
+let actions = [];
+let currentAction = 0;
+let isAnimating = false;
+
+// === Initialization ===
+function init() {
+  canvas = document.getElementById("mainCanvas");
+  graphics = canvas.getContext("2d");
+  randomPermutation();
+  drawArray();
+}
+
+// === Utility ===
+function randomPermutation() {
+  const n = 30;
+  array = Array.from({length: n}, (_, i) => i + 1);
+  for (let i = n - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]];
+  }
+  drawArray();
+}
+
+// === Drawing ===
+function drawArray(highlight = []) {
+  const n = array.length;
+  const w = canvas.width / n;
+  const hFactor = canvas.height / Math.max(...array);
+  graphics.clearRect(0, 0, canvas.width, canvas.height);
+  for (let i = 0; i < n; i++) {
+    graphics.fillStyle = highlight.includes(i) ? "#ef4444" : "#3b82f6";
+    const barHeight = array[i] * hFactor;
+    graphics.fillRect(i * w, canvas.height - barHeight, w - 1, barHeight);
+  }
+}
+
+// === Sorting Action Generators ===
+function sort(algo) {
+  if (isAnimating) return;
+  actions = [];
+  switch (algo) {
+    case "Selection": selectionSort(); break;
+    case "Insertion": insertionSort(); break;
+    case "Merge": mergeSort(); break;
+    case "Quick": quickSort(); break;
+  }
+  currentAction = 0;
+  runActions();
+}
+
+function record(action, i, j) {
+  actions.push({action, i, j});
+}
+
+function selectionSort() {
+  const n = array.length;
+  for (let i = 0; i < n - 1; i++) {
+    let min = i;
+    for (let j = i + 1; j < n; j++) {
+      record("compare", min, j);
+      if (array[j] < array[min]) min = j;
+    }
+    [array[i], array[min]] = [array[min], array[i]];
+    record("swap", i, min);
+  }
+}
+
+function insertionSort() {
+  const n = array.length;
+  for (let i = 1; i < n; i++) {
+    let key = array[i];
+    let j = i - 1;
+    while (j >= 0 && array[j] > key) {
+      record("compare", j, i);
+      array[j + 1] = array[j];
+      j--;
+    }
+    array[j + 1] = key;
+    record("insert", j + 1, i);
+  }
+}
+
+function mergeSort() {
+  function mergeSortRec(left, right) {
+    if (left >= right) return;
+    const mid = Math.floor((left + right) / 2);
+    mergeSortRec(left, mid);
+    mergeSortRec(mid + 1, right);
+    merge(left, mid, right);
+  }
+
+  function merge(left, mid, right) {
+    const temp = array.slice(left, right + 1);
+    let i = 0, j = mid - left + 1, k = left;
+    while (i <= mid - left && j <= right - left) {
+      record("compare", left + i, left + j);
+      if (temp[i] <= temp[j]) {
+        array[k++] = temp[i++];
+      } else {
+        array[k++] = temp[j++];
+      }
+    }
+    while (i <= mid - left) array[k++] = temp[i++];
+    while (j <= right - left) array[k++] = temp[j++];
+  }
+
+  mergeSortRec(0, array.length - 1);
+}
+
+function quickSort() {
+  function quickSortRec(left, right) {
+    if (left >= right) return;
+    const pivot = array[right];
+    let i = left;
+    for (let j = left; j < right; j++) {
+      record("compare", j, right);
+      if (array[j] < pivot) {
+        [array[i], array[j]] = [array[j], array[i]];
+        record("swap", i, j);
+        i++;
+      }
+    }
+    [array[i], array[right]] = [array[right], array[i]];
+    record("swap", i, right);
+    quickSortRec(left, i - 1);
+    quickSortRec(i + 1, right);
+  }
+
+  quickSortRec(0, array.length - 1);
+}
+
+// === Animation ===
+function runActions() {
+  isAnimating = true;
+  const tempArray = [...array];
+  randomPermutation(); // reset for visualization
+  let idx = 0;
+  function step() {
+    if (idx >= actions.length) {
+      isAnimating = false;
+      drawArray();
+      return;
+    }
+    const {action, i, j} = actions[idx++];
+    if (action === "swap") [array[i], array[j]] = [array[j], array[i]];
+    drawArray([i, j]);
+    setTimeout(step, 80);
+  }
+  step();
+}
+</script>
 </body>
 </html>
